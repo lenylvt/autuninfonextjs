@@ -26,7 +26,7 @@ export default function RSSFeed() {
   const [newItems, setNewItems] = useState<Set<string>>(new Set())
   const [searchText, setSearchText] = useState('')
   const [showSearch, setShowSearch] = useState(false)
-  const [lastVisit, setLastVisit] = useState<Date | null>(TEST_LAST_VISIT)
+  const [lastVisit, setLastVisit] = useState<Date | null>(null)
 
   useEffect(() => {
     fetchRSS()
