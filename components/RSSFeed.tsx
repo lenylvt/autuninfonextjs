@@ -21,25 +21,26 @@ interface RSSItem {
 export default function RSSFeed() {
   const [articles, setArticles] = useState<RSSItem[]>([])
   const [obituaries, setObituaries] = useState<RSSItem[]>([])
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [readItems, setReadItems] = useState<Set<string>>(new Set())
-  const [newItems, setNewItems] = useState<Set<string>>(new Set())
+  const [favorites, setFavorites] = useState<string[]>([])
+  const [readItems, setReadItems] = useState<string[]>([])
+  const [newItems, setNewItems] = useState<string[]>([])
   const [searchText, setSearchText] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [lastVisit, setLastVisit] = useState<Date | null>(null)
 
   useEffect(() => {
-    fetchRSS()
-    fetchObituaries()
     loadFavorites()
     loadReadItems()
     loadLastVisit()
-    
+    fetchRSS()
+    fetchObituaries()
+  }, [])
+
+  useEffect(() => {
     // Update last visit time
     const now = new Date()
     localStorage.setItem('LastVisit', now.toISOString())
     setLastVisit(now)
-    console.log('Last visit updated:', now.toISOString())
 
     return () => {
       // Save last visit time when component unmounts
@@ -76,56 +77,48 @@ export default function RSSFeed() {
 
   const checkNewItems = (items: RSSItem[]) => {
     if (lastVisit) {
-      const newItemsSet = new Set(
-        items
-          .filter(item => new Date(item.date_published) > lastVisit)
-          .map(item => item.id)
-      )
-      setNewItems(prev => new Set([...prev, ...newItemsSet]))
+      const newItemsArray = items
+        .filter(item => new Date(item.date_published) > lastVisit)
+        .map(item => item.id)
+      setNewItems(prevNewItems => [...prevNewItems, ...newItemsArray])
     }
   }
 
   const toggleFavorite = (item: RSSItem) => {
-    setFavorites(prev => {
-      const newFavorites = new Set(prev)
-      if (newFavorites.has(item.id)) {
-        newFavorites.delete(item.id)
+    setFavorites(prevFavorites => {
+      let newFavorites;
+      if (prevFavorites.includes(item.id)) {
+        newFavorites = prevFavorites.filter(id => id !== item.id)
       } else {
-        newFavorites.add(item.id)
+        newFavorites = [...prevFavorites, item.id]
       }
-      saveFavorites(newFavorites)
+      localStorage.setItem('Favorites', JSON.stringify(newFavorites))
       return newFavorites
     })
-  }
-
-  const saveFavorites = (favorites: Set<string>) => {
-    localStorage.setItem('Favorites', JSON.stringify(Array.from(favorites)))
   }
 
   const loadFavorites = () => {
     const savedFavorites = localStorage.getItem('Favorites')
     if (savedFavorites) {
-      setFavorites(new Set(JSON.parse(savedFavorites)))
+      setFavorites(JSON.parse(savedFavorites))
     }
   }
 
   const markAsRead = (item: RSSItem) => {
-    setReadItems(prev => {
-      const newReadItems = new Set(prev)
-      newReadItems.add(item.id)
-      saveReadItems(newReadItems)
-      return newReadItems
+    setReadItems(prevReadItems => {
+      if (!prevReadItems.includes(item.id)) {
+        const newReadItems = [...prevReadItems, item.id]
+        localStorage.setItem('ReadItems', JSON.stringify(newReadItems))
+        return newReadItems
+      }
+      return prevReadItems
     })
-  }
-
-  const saveReadItems = (readItems: Set<string>) => {
-    localStorage.setItem('ReadItems', JSON.stringify(Array.from(readItems)))
   }
 
   const loadReadItems = () => {
     const savedReadItems = localStorage.getItem('ReadItems')
     if (savedReadItems) {
-      setReadItems(new Set(JSON.parse(savedReadItems)))
+      setReadItems(JSON.parse(savedReadItems))
     }
   }
 
@@ -136,9 +129,9 @@ export default function RSSFeed() {
     }
   }
 
-  const isFavorite = (item: RSSItem) => favorites.has(item.id)
-  const isRead = (item: RSSItem) => readItems.has(item.id)
-  const isNew = (item: RSSItem) => newItems.has(item.id)
+  const isFavorite = (item: RSSItem) => favorites.includes(item.id)
+  const isRead = (item: RSSItem) => readItems.includes(item.id)
+  const isNew = (item: RSSItem) => newItems.includes(item.id)
 
   const formatDate = (dateString: string) => {
     if (!dateString) {
