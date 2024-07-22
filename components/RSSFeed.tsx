@@ -6,35 +6,49 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Star, Newspaper, Search } from 'lucide-react'
+import { Star, Newspaper, Search, UserX, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
 interface RSSItem {
   id: string
   title: string
   url: string
-  content_html: string
+  content_html?: string
   date_published: string
 }
 
 export default function RSSFeed() {
-  const [items, setItems] = useState<RSSItem[]>([])
+  const [articles, setArticles] = useState<RSSItem[]>([])
+  const [obituaries, setObituaries] = useState<RSSItem[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [readItems, setReadItems] = useState<Set<string>>(new Set())
   const [searchText, setSearchText] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
     fetchRSS()
+    fetchObituaries()
     loadFavorites()
+    loadReadItems()
   }, [])
 
   const fetchRSS = async () => {
     try {
       const response = await fetch('/api/rss')
       const data = await response.json()
-      setItems(data.items)
+      setArticles(data.items)
     } catch (error) {
       console.error('Error fetching RSS:', error)
+    }
+  }
+
+  const fetchObituaries = async () => {
+    try {
+      const response = await fetch('/api/obituaries')
+      const data = await response.json()
+      setObituaries(data.items)
+    } catch (error) {
+      console.error('Error fetching obituaries:', error)
     }
   }
 
@@ -62,28 +76,107 @@ export default function RSSFeed() {
     }
   }
 
-  const isFavorite = (item: RSSItem) => favorites.has(item.id)
+  const markAsRead = (item: RSSItem) => {
+    setReadItems(prev => {
+      const newReadItems = new Set(prev)
+      newReadItems.add(item.id)
+      saveReadItems(newReadItems)
+      return newReadItems
+    })
+  }
 
-  const formatDate = (dateString: string, timeString: string) => {
-    if (!dateString || !timeString) {
+  const saveReadItems = (readItems: Set<string>) => {
+    localStorage.setItem('ReadItems', JSON.stringify(Array.from(readItems)))
+  }
+
+  const loadReadItems = () => {
+    const savedReadItems = localStorage.getItem('ReadItems')
+    if (savedReadItems) {
+      setReadItems(new Set(JSON.parse(savedReadItems)))
+    }
+  }
+
+  const isFavorite = (item: RSSItem) => favorites.has(item.id)
+  const isRead = (item: RSSItem) => readItems.has(item.id)
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) {
       return 'Date inconnue'
     }
 
     const date = new Date(dateString)
-    const today = new Date()
-    
-    if (date.toDateString() === today.toDateString()) {
-      return `Aujourd'hui à ${timeString}`
+    const now = new Date()
+    const timeRegex = /^(\d{1,2})[Hh](\d{2})?$/
+    const dateRegex = /^(\d{1,2})\/(\d{1,2})$/
+
+    // Check if it's a time string (e.g., "11H00" or "11h")
+    const timeMatch = dateString.match(timeRegex)
+    if (timeMatch) {
+      const hours = timeMatch[1].padStart(2, '0')
+      const minutes = timeMatch[2] ? timeMatch[2] : '00'
+      return `Aujourd'hui à ${hours}H${minutes}`
+    }
+
+    // Check if it's a date string (e.g., "21/07")
+    const dateMatch = dateString.match(dateRegex)
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1], 10)
+      const month = parseInt(dateMatch[2], 10) - 1 // JavaScript months are 0-indexed
+      const formattedDate = new Date(now.getFullYear(), month, day)
+      return `Le ${formattedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' })}`
+    }
+
+    // If it's neither a time nor a date string, format as before
+    if (date.toDateString() === now.toDateString()) {
+      return `Aujourd'hui à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
     } else {
-      return `${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${timeString}`
+      return `Le ${date.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' })}`
     }
   }
 
-  const filteredItems = items.filter(item =>
+  const filteredArticles = articles.filter(item =>
     item.title.toLowerCase().includes(searchText.toLowerCase())
   )
 
-  const filteredFavorites = filteredItems.filter(item => isFavorite(item))
+  const filteredObituaries = obituaries.filter(item =>
+    item.title.toLowerCase().includes(searchText.toLowerCase())
+  )
+
+  const filteredFavorites = [...articles, ...obituaries].filter(item => 
+    isFavorite(item) && item.title.toLowerCase().includes(searchText.toLowerCase())
+  )
+
+  const renderItems = (items: RSSItem[]) => (
+    items.map(item => (
+      <Card key={item.id} className={`mb-4 ${isRead(item) ? 'bg-gray-100' : ''}`}>
+        <CardContent className="p-4">
+          <h2 className="text-lg font-semibold mb-2 flex items-center">
+            {item.title}
+            {isRead(item) && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
+          </h2>
+          <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published)}</p>
+          <div className="flex justify-between items-center">
+            <Link 
+              href={`/reader/${encodeURIComponent(item.url)}`} 
+              className="w-full mr-2"
+              onClick={() => markAsRead(item)}
+            >
+              <Button variant="outline" className="w-full">
+                {isRead(item) ? 'Relire' : 'Lire'}
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => toggleFavorite(item)}
+            >
+              <Star className={`h-6 w-6 ${isFavorite(item) ? 'fill-yellow-400' : ''}`} />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    ))
+  )
 
   return (
     <div className="p-4">
@@ -105,10 +198,14 @@ export default function RSSFeed() {
       )}
 
       <Tabs defaultValue="articles" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="articles">
             <Newspaper className="mr-2 h-4 w-4" />
             Articles
+          </TabsTrigger>
+          <TabsTrigger value="obituaries">
+            <UserX className="mr-2 h-4 w-4" />
+            Décès
           </TabsTrigger>
           <TabsTrigger value="favorites">
             <Star className="mr-2 h-4 w-4" />
@@ -117,49 +214,15 @@ export default function RSSFeed() {
         </TabsList>
 
         <TabsContent value="articles">
-          {filteredItems.map(item => (
-            <Card key={item.id} className="mb-4">
-              <CardContent className="p-4">
-                <h2 className="text-lg font-semibold mb-2">{item.title}</h2>
-                <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published, item.content_html)}</p>
-                <div className="flex justify-between items-center">
-                  <Link href={`/reader/${encodeURIComponent(item.url)}`} className="w-full mr-2">
-                    <Button variant="outline" className="w-full">Lire</Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleFavorite(item)}
-                  >
-                    <Star className={`h-6 w-6 ${isFavorite(item) ? 'fill-yellow-400' : ''}`} />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {renderItems(filteredArticles)}
+        </TabsContent>
+
+        <TabsContent value="obituaries">
+          {renderItems(filteredObituaries)}
         </TabsContent>
 
         <TabsContent value="favorites">
-          {filteredFavorites.map(item => (
-            <Card key={item.id} className="mb-4">
-              <CardContent className="p-4">
-                <h2 className="text-lg font-semibold mb-2">{item.title}</h2>
-                <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published, item.content_html)}</p>
-                <div className="flex justify-between items-center">
-                  <Link href={`/reader/${encodeURIComponent(item.url)}`} className="w-full mr-2">
-                    <Button variant="outline" className="w-full">Lire</Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleFavorite(item)}
-                  >
-                    <Star className="h-6 w-6 fill-yellow-400" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {renderItems(filteredFavorites)}
         </TabsContent>
       </Tabs>
     </div>
