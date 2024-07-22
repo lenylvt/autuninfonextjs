@@ -15,6 +15,7 @@ interface RSSItem {
   url: string
   content_html?: string
   date_published: string
+  isObituary?: boolean
 }
 
 export default function RSSFeed() {
@@ -22,14 +23,27 @@ export default function RSSFeed() {
   const [obituaries, setObituaries] = useState<RSSItem[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [readItems, setReadItems] = useState<Set<string>>(new Set())
+  const [newItems, setNewItems] = useState<Set<string>>(new Set())
   const [searchText, setSearchText] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [lastVisit, setLastVisit] = useState<Date | null>(TEST_LAST_VISIT)
 
   useEffect(() => {
     fetchRSS()
     fetchObituaries()
     loadFavorites()
     loadReadItems()
+    loadLastVisit()
+    
+    // Update last visit time
+    const now = new Date()
+    localStorage.setItem('LastVisit', now.toISOString())
+    setLastVisit(now)
+
+    return () => {
+      // Save last visit time when component unmounts
+      localStorage.setItem('LastVisit', new Date().toISOString())
+    }
   }, [])
 
   const fetchRSS = async () => {
@@ -37,6 +51,7 @@ export default function RSSFeed() {
       const response = await fetch('/api/rss')
       const data = await response.json()
       setArticles(data.items)
+      checkNewItems(data.items)
     } catch (error) {
       console.error('Error fetching RSS:', error)
     }
@@ -46,9 +61,26 @@ export default function RSSFeed() {
     try {
       const response = await fetch('/api/obituaries')
       const data = await response.json()
-      setObituaries(data.items)
+      const formattedObituaries = data.items.map((item: RSSItem) => ({
+        ...item,
+        title: item.title.replace(/^Avis de décès : /, ''),
+        isObituary: true
+      }))
+      setObituaries(formattedObituaries)
+      checkNewItems(formattedObituaries)
     } catch (error) {
       console.error('Error fetching obituaries:', error)
+    }
+  }
+
+  const checkNewItems = (items: RSSItem[]) => {
+    if (lastVisit) {
+      const newItemsSet = new Set(
+        items
+          .filter(item => new Date(item.date_published) > lastVisit)
+          .map(item => item.id)
+      )
+      setNewItems(prev => new Set([...prev, ...newItemsSet]))
     }
   }
 
@@ -96,8 +128,16 @@ export default function RSSFeed() {
     }
   }
 
+  const loadLastVisit = () => {
+    const savedLastVisit = localStorage.getItem('LastVisit')
+    if (savedLastVisit) {
+      setLastVisit(new Date(savedLastVisit))
+    }
+  }
+
   const isFavorite = (item: RSSItem) => favorites.has(item.id)
   const isRead = (item: RSSItem) => readItems.has(item.id)
+  const isNew = (item: RSSItem) => newItems.has(item.id)
 
   const formatDate = (dateString: string) => {
     if (!dateString) {
@@ -153,6 +193,7 @@ export default function RSSFeed() {
           <h2 className="text-lg font-semibold mb-2 flex items-center">
             {item.title}
             {isRead(item) && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
+            {isNew(item) && <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">Nouveau</span>}
           </h2>
           <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published)}</p>
           <div className="flex justify-between items-center">
