@@ -52,7 +52,7 @@ export default function Reader({ url }: ReaderProps) {
   .replace(/https:\/\/www\.autun-infos\.com\/img\/icon_print.png/g, '') // Remove print icon
   .replace(/IMPRIMER L'ARTICLE/g, '') // Remove "IMPRIMER L'ARTICLE"
 
-        // Handle "Cliquez ici pour" and "Cliquez-ici pour" links
+       // Handle "Cliquez ici pour" and "Cliquez-ici pour" links
 const links = content.getElementsByTagName('a');
 for (let i = 0; i < links.length; i++) {
   const link = links[i];
@@ -70,7 +70,7 @@ for (let i = 0; i < links.length; i++) {
   if (!link.textContent?.toLowerCase().includes('cliquez ici pour') && !link.textContent?.toLowerCase().includes('cliquez-ici pour')) {
     const button = document.createElement('button');
     button.innerHTML = link.innerHTML;
-    button.className = 'bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-block my-2';
+    button.className = 'styled-button';
     button.onclick = (e) => {
       e.preventDefault();
       window.open(link.href, '_blank');
