@@ -39,6 +39,7 @@ export default function RSSFeed() {
     const now = new Date()
     localStorage.setItem('LastVisit', now.toISOString())
     setLastVisit(now)
+    console.log('Last visit updated:', now.toISOString())
 
     return () => {
       // Save last visit time when component unmounts
