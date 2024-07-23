@@ -79,24 +79,16 @@ export default function RSSFeed() {
   }
 
   const checkNewItems = (items: RSSItem[]) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
     const newItemsArray = items.filter(item => {
       const itemDate = new Date(item.date_published)
-      if (!lastVisit) {
-        // Si pas de dernière visite, considérer tous les articles d'aujourd'hui comme nouveaux
-        return itemDate >= today
-      } else {
-        // Sinon, vérifier par rapport à la dernière visite
-        return itemDate > lastVisit
-      }
+      return lastVisit ? itemDate > lastVisit : true
     }).map(item => item.id)
 
-    setNewItems(prevNewItems => [...new Set([...prevNewItems, ...newItemsArray])])
-
-    // Mettre à jour la date de dernière visite
-    setLastVisit(new Date())
+    setNewItems(prevNewItems => {
+      const newItemsSet = new Set(prevNewItems)
+      newItemsArray.forEach(id => newItemsSet.add(id))
+      return Array.from(newItemsSet)
+    })
   }
 
   const toggleFavorite = (item: RSSItem) => {
