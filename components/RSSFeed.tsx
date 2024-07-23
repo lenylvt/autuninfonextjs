@@ -37,16 +37,19 @@ export default function RSSFeed() {
   }, [])
 
   useEffect(() => {
-    // Update last visit time
-    const now = new Date()
-    localStorage.setItem('LastVisit', now.toISOString())
-    setLastVisit(now)
-
-    return () => {
-      // Save last visit time when component unmounts
-      localStorage.setItem('LastVisit', new Date().toISOString())
+    if (lastVisit) {
+      localStorage.setItem('LastVisit', lastVisit.toISOString())
     }
-  }, [])
+  }, [lastVisit])
+
+  const loadLastVisit = () => {
+    const savedLastVisit = localStorage.getItem('LastVisit')
+    if (savedLastVisit) {
+      setLastVisit(new Date(savedLastVisit))
+    } else {
+      setLastVisit(null)
+    }
+  }
 
   const fetchRSS = async () => {
     try {
@@ -76,22 +79,31 @@ export default function RSSFeed() {
   }
 
   const checkNewItems = (items: RSSItem[]) => {
-    if (lastVisit) {
-      const newItemsArray = items
-        .filter(item => new Date(item.date_published) > lastVisit)
-        .map(item => item.id)
-      setNewItems(prevNewItems => [...prevNewItems, ...newItemsArray])
-    }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const newItemsArray = items.filter(item => {
+      const itemDate = new Date(item.date_published)
+      if (!lastVisit) {
+        // Si pas de dernière visite, considérer tous les articles d'aujourd'hui comme nouveaux
+        return itemDate >= today
+      } else {
+        // Sinon, vérifier par rapport à la dernière visite
+        return itemDate > lastVisit
+      }
+    }).map(item => item.id)
+
+    setNewItems(prevNewItems => [...new Set([...prevNewItems, ...newItemsArray])])
+
+    // Mettre à jour la date de dernière visite
+    setLastVisit(new Date())
   }
 
   const toggleFavorite = (item: RSSItem) => {
     setFavorites(prevFavorites => {
-      let newFavorites;
-      if (prevFavorites.includes(item.id)) {
-        newFavorites = prevFavorites.filter(id => id !== item.id)
-      } else {
-        newFavorites = [...prevFavorites, item.id]
-      }
+      const newFavorites = prevFavorites.includes(item.id)
+        ? prevFavorites.filter(id => id !== item.id)
+        : [...prevFavorites, item.id]
       localStorage.setItem('Favorites', JSON.stringify(newFavorites))
       return newFavorites
     })
@@ -122,13 +134,6 @@ export default function RSSFeed() {
     }
   }
 
-  const loadLastVisit = () => {
-    const savedLastVisit = localStorage.getItem('LastVisit')
-    if (savedLastVisit) {
-      setLastVisit(new Date(savedLastVisit))
-    }
-  }
-
   const isFavorite = (item: RSSItem) => favorites.includes(item.id)
   const isRead = (item: RSSItem) => readItems.includes(item.id)
   const isNew = (item: RSSItem) => newItems.includes(item.id)
@@ -143,7 +148,6 @@ export default function RSSFeed() {
     const timeRegex = /^(\d{1,2})[Hh](\d{2})?$/
     const dateRegex = /^(\d{1,2})\/(\d{1,2})$/
 
-    // Check if it's a time string (e.g., "11H00" or "11h")
     const timeMatch = dateString.match(timeRegex)
     if (timeMatch) {
       const hours = timeMatch[1].padStart(2, '0')
@@ -151,16 +155,14 @@ export default function RSSFeed() {
       return `Aujourd'hui à ${hours}H${minutes}`
     }
 
-    // Check if it's a date string (e.g., "21/07")
     const dateMatch = dateString.match(dateRegex)
     if (dateMatch) {
       const day = parseInt(dateMatch[1], 10)
-      const month = parseInt(dateMatch[2], 10) - 1 // JavaScript months are 0-indexed
+      const month = parseInt(dateMatch[2], 10) - 1
       const formattedDate = new Date(now.getFullYear(), month, day)
       return `Le ${formattedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' })}`
     }
 
-    // If it's neither a time nor a date string, format as before
     if (date.toDateString() === now.toDateString()) {
       return `Aujourd'hui à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
     } else {
