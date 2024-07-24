@@ -6,8 +6,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Star, Newspaper, Search, UserX, CheckCircle, Loader2 } from 'lucide-react'
+import { Star, Newspaper, Search, UserX, CheckCircle, Loader2, Moon, Sun } from 'lucide-react'
 import Link from 'next/link'
+import { useTheme } from 'next-themes'
 
 interface RSSItem {
   id: string
@@ -19,10 +20,10 @@ interface RSSItem {
 }
 
 const LoadingScreen = () => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
     <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-    <h2 className="mt-4 text-xl font-semibold text-gray-700">Chargement des dernières informations...</h2>
-    <p className="mt-2 text-sm text-gray-500">Merci de patienter un instant</p>
+    <h2 className="mt-4 text-xl font-semibold text-gray-700 dark:text-gray-300">Chargement des dernières informations...</h2>
+    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Merci de patienter un instant</p>
   </div>
 )
 
@@ -36,6 +37,7 @@ export default function RSSFeed() {
   const [showSearch, setShowSearch] = useState(false)
   const [lastVisit, setLastVisit] = useState<Date | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const { theme, setTheme } = useTheme()
 
   useEffect(() => {
     const initializeData = async () => {
@@ -47,7 +49,6 @@ export default function RSSFeed() {
       await fetchObituaries()
       setIsLoading(false)
 
-      // Sauvegarder la visite actuelle
       const currentVisit = new Date()
       localStorage.setItem('CurrentVisit', currentVisit.toISOString())
       console.log('Current visit set:', currentVisit.toISOString())
@@ -205,7 +206,7 @@ export default function RSSFeed() {
 
   const renderItems = (items: RSSItem[]) => (
     items.map(item => (
-      <Card key={item.id} className={`mb-4 ${isRead(item) ? 'bg-gray-100' : ''}`}>
+      <Card key={item.id} className={`mb-4 ${isRead(item) ? 'bg-gray-100 dark:bg-gray-800' : ''}`}>
         <CardContent className="p-4">
           <h2 className="text-lg font-semibold mb-2 flex items-center">
             {item.title}
@@ -213,7 +214,7 @@ export default function RSSFeed() {
             {!item.isObituary && isNew(item) && <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">Nouveau</span>}
           </h2>
           {!item.isObituary && (
-            <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published)}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{formatDate(item.date_published)}</p>
           )}
           <div className="flex justify-between items-center">
             <Link 
@@ -243,12 +244,21 @@ export default function RSSFeed() {
   }
 
   return (
-    <div className="p-4">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Autun Infos</h1>
-        <p className="text-sm text-gray-500">
-          Dernière visite : {lastVisit ? formatDate(lastVisit.toISOString()) : 'Première visite'}
-        </p>
+    <div className="p-4 bg-white dark:bg-gray-900 min-h-screen">
+      <div className="mb-4 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold dark:text-white">Autun Infos</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Dernière visite : {lastVisit ? formatDate(lastVisit.toISOString()) : 'Première visite'}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+        </Button>
       </div>
       <div className="flex justify-end mb-4">
         <Button variant="ghost" size="icon" onClick={() => setShowSearch(!showSearch)}>
