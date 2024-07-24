@@ -210,7 +210,7 @@ export default function RSSFeed() {
           <h2 className="text-lg font-semibold mb-2 flex items-center">
             {item.title}
             {isRead(item) && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
-            {isNew(item) && <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">Nouveau</span>}
+            {!item.isObituary && isNew(item) && <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">Nouveau</span>}
           </h2>
           {!item.isObituary && (
             <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published)}</p>
