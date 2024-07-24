@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Star, Newspaper, Search, UserX, CheckCircle } from 'lucide-react'
+import { Star, Newspaper, Search, UserX, CheckCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 interface RSSItem {
@@ -18,6 +18,14 @@ interface RSSItem {
   isObituary?: boolean
 }
 
+const LoadingScreen = () => (
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+    <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+    <h2 className="mt-4 text-xl font-semibold text-gray-700">Chargement des dernières informations...</h2>
+    <p className="mt-2 text-sm text-gray-500">Merci de patienter un instant</p>
+  </div>
+)
+
 export default function RSSFeed() {
   const [articles, setArticles] = useState<RSSItem[]>([])
   const [obituaries, setObituaries] = useState<RSSItem[]>([])
@@ -27,29 +35,39 @@ export default function RSSFeed() {
   const [searchText, setSearchText] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [lastVisit, setLastVisit] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    loadFavorites()
-    loadReadItems()
-    loadLastVisit()
-    fetchRSS()
-    fetchObituaries()
+    const initializeData = async () => {
+      setIsLoading(true)
+      await loadFavorites()
+      await loadReadItems()
+      await loadLastVisit()
+      await fetchRSS()
+      await fetchObituaries()
+      setIsLoading(false)
 
-    // Sauvegarder la visite actuelle
-    const currentVisit = new Date()
-    localStorage.setItem('CurrentVisit', currentVisit.toISOString())
-    console.log('Current visit set:', currentVisit.toISOString())
+      // Sauvegarder la visite actuelle
+      const currentVisit = new Date()
+      localStorage.setItem('CurrentVisit', currentVisit.toISOString())
+      console.log('Current visit set:', currentVisit.toISOString())
+    }
+
+    initializeData()
   }, [])
 
-  const loadLastVisit = () => {
-    const savedLastVisit = localStorage.getItem('LastVisit')
-    if (savedLastVisit) {
-      setLastVisit(new Date(savedLastVisit))
-      console.log('Last visit loaded:', savedLastVisit)
-    } else {
-      setLastVisit(null)
-      console.log('No last visit found')
-    }
+  const loadLastVisit = async () => {
+    return new Promise<void>((resolve) => {
+      const savedLastVisit = localStorage.getItem('LastVisit')
+      if (savedLastVisit) {
+        setLastVisit(new Date(savedLastVisit))
+        console.log('Last visit loaded:', savedLastVisit)
+      } else {
+        setLastVisit(null)
+        console.log('No last visit found')
+      }
+      resolve()
+    })
   }
 
   const fetchRSS = async () => {
@@ -90,12 +108,8 @@ export default function RSSFeed() {
         return isNew
       }).map(item => item.id)
 
-      setNewItems(prevNewItems => {
-        const newItemsSet = new Set(prevNewItems)
-        newItemsArray.forEach(id => newItemsSet.add(id))
-        console.log('New items:', Array.from(newItemsSet))
-        return Array.from(newItemsSet)
-      })
+      setNewItems(newItemsArray)
+      console.log('New items:', newItemsArray)
     } else {
       console.log('First visit, all items are new')
       setNewItems(items.map(item => item.id))
@@ -224,12 +238,16 @@ export default function RSSFeed() {
     ))
   )
 
+  if (isLoading) {
+    return <LoadingScreen />
+  }
+
   return (
     <div className="p-4">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">Autun Infos</h1>
         <p className="text-sm text-gray-500">
-        Dernière visite : {lastVisit ? formatDate(lastVisit.toISOString()) : 'Première visite'}
+          Dernière visite : {lastVisit ? formatDate(lastVisit.toISOString()) : 'Première visite'}
         </p>
       </div>
       <div className="flex justify-end mb-4">
