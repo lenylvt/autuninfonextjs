@@ -34,20 +34,21 @@ export default function RSSFeed() {
     loadLastVisit()
     fetchRSS()
     fetchObituaries()
-  }, [])
 
-  useEffect(() => {
-    if (lastVisit) {
-      localStorage.setItem('LastVisit', lastVisit.toISOString())
-    }
-  }, [lastVisit])
+    // Sauvegarder la visite actuelle
+    const currentVisit = new Date()
+    localStorage.setItem('CurrentVisit', currentVisit.toISOString())
+    console.log('Current visit set:', currentVisit.toISOString())
+  }, [])
 
   const loadLastVisit = () => {
     const savedLastVisit = localStorage.getItem('LastVisit')
     if (savedLastVisit) {
       setLastVisit(new Date(savedLastVisit))
+      console.log('Last visit loaded:', savedLastVisit)
     } else {
       setLastVisit(null)
+      console.log('No last visit found')
     }
   }
 
@@ -79,16 +80,30 @@ export default function RSSFeed() {
   }
 
   const checkNewItems = (items: RSSItem[]) => {
-    const newItemsArray = items.filter(item => {
-      const itemDate = new Date(item.date_published)
-      return lastVisit ? itemDate > lastVisit : true
-    }).map(item => item.id)
+    const currentVisit = new Date()
+    if (lastVisit) {
+      console.log('Checking new items. Last visit:', lastVisit.toISOString())
+      const newItemsArray = items.filter(item => {
+        const itemDate = new Date(item.date_published)
+        const isNew = itemDate > lastVisit
+        console.log(`Item ${item.id} date: ${itemDate.toISOString()}, isNew: ${isNew}`)
+        return isNew
+      }).map(item => item.id)
 
-    setNewItems(prevNewItems => {
-      const newItemsSet = new Set(prevNewItems)
-      newItemsArray.forEach(id => newItemsSet.add(id))
-      return Array.from(newItemsSet)
-    })
+      setNewItems(prevNewItems => {
+        const newItemsSet = new Set(prevNewItems)
+        newItemsArray.forEach(id => newItemsSet.add(id))
+        console.log('New items:', Array.from(newItemsSet))
+        return Array.from(newItemsSet)
+      })
+    } else {
+      console.log('First visit, all items are new')
+      setNewItems(items.map(item => item.id))
+    }
+    
+    // Update LastVisit for the next time
+    localStorage.setItem('LastVisit', currentVisit.toISOString())
+    console.log('LastVisit updated:', currentVisit.toISOString())
   }
 
   const toggleFavorite = (item: RSSItem) => {
@@ -183,7 +198,9 @@ export default function RSSFeed() {
             {isRead(item) && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
             {isNew(item) && <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">Nouveau</span>}
           </h2>
-          <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published)}</p>
+          {!item.isObituary && (
+            <p className="text-sm text-gray-500 mb-3">{formatDate(item.date_published)}</p>
+          )}
           <div className="flex justify-between items-center">
             <Link 
               href={`/reader/${encodeURIComponent(item.url)}`} 
@@ -209,8 +226,13 @@ export default function RSSFeed() {
 
   return (
     <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold">Autun Infos</h1>
+        <p className="text-sm text-gray-500">
+        Dernière visite : {lastVisit ? formatDate(lastVisit.toISOString()) : 'Première visite'}
+        </p>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button variant="ghost" size="icon" onClick={() => setShowSearch(!showSearch)}>
           <Search className="h-6 w-6" />
         </Button>
